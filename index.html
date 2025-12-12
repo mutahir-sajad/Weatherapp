@@ -1,493 +1,56 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Weather Finder — Modern</title>
-
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-  :root{
-    --card-bg: rgba(255,255,255,0.08);
-    --glass: rgba(255,255,255,0.06);
-    --accent: #4fc3f7;
-    --text: #eef8ff;
-    --muted: rgba(238,248,255,0.7);
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  }
-
-  /* Reset & layout */
-  *{box-sizing:border-box}
-  html,body{height:100%; margin:0; background: linear-gradient(180deg,#0f172a 0%, #081124 60%); color:var(--text);}
-  body{display:flex; align-items:center; justify-content:center; padding:32px;}
-
-  /* App frame */
-  .app {
-    width:100%;
-    max-width:980px;
-    display:grid;
-    grid-template-columns: 1fr 360px;
-    gap:24px;
-    align-items:start;
-  }
-
-  /* Left column (main) */
-  .main {
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    border-radius:16px;
-    padding:20px;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 10px 30px rgba(2,6,23,0.6);
-  }
-
-  /* Search row */
-  .search-row {display:flex; gap:12px; align-items:center; margin-bottom:12px;}
-  .search {
-    flex:1; display:flex; gap:8px; align-items:center;
-    background:var(--glass); padding:8px; border-radius:12px;
-  }
-  .search input{
-    flex:1; background:transparent; border:0; color:var(--text); font-size:15px; padding:8px;
-    outline:none;
-  }
-  .btn {
-    background:linear-gradient(90deg,var(--accent), #2196f3);
-    border:0; padding:10px 12px; border-radius:10px; color:#022; cursor:pointer; font-weight:600;
-  }
-  .small {font-size:13px; color:var(--muted); margin-top:6px;}
-
-  /* Current card */
-  .current {
-    display:flex; gap:18px; align-items:center; padding:18px; border-radius:12px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
-  }
-  .current .left {flex:1}
-  .loc {font-size:20px; font-weight:700; margin-bottom:4px;}
-  .desc {color:var(--muted); margin-bottom:8px;}
-  .temp-row {display:flex; align-items:baseline; gap:8px;}
-  .temp {font-size:56px; font-weight:800;}
-  .unit {font-size:20px; color:var(--muted);}
-  .meta {display:flex; gap:14px; margin-top:12px; color:var(--muted); font-size:14px;}
-  .meta div{display:flex; flex-direction:column; align-items:flex-start;}
-
-  /* Icon */
-  .icon {
-    width:110px; height:110px; display:flex; align-items:center; justify-content:center;
-    font-size:46px; border-radius:12px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-  }
-
-  /* Forecast list */
-  .forecast {
-    margin-top:18px;
-  }
-  .forecast-grid {display:flex; gap:10px; overflow:auto; padding-bottom:6px;}
-  .day {
-    min-width:110px; padding:12px; border-radius:10px; background:var(--card-bg);
-    text-align:center; color:var(--text);
-  }
-  .day .dayname {font-weight:700; margin-bottom:8px;}
-  .day .r-icon {font-size:26px; margin-bottom:8px;}
-  .day .temps {font-weight:700; color:var(--muted);}
-
-  /* Right column (panel) */
-  .panel {
-    display:flex; flex-direction:column; gap:14px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    border-radius:12px; padding:16px; backdrop-filter: blur(6px);
-  }
-
-  .card {
-    padding:12px; border-radius:10px; background:var(--card-bg);
-  }
-  .card h3 {margin:0 0 8px 0; font-size:14px;}
-  #hourlyChart {width:100% !important; height:220px !important;}
-
-  /* overlays for rain, snow, thunder */
-  .overlay {position:fixed; inset:0; pointer-events:none; z-index:0;}
-  .rain { --drops:60; position:absolute; inset:0; overflow:hidden;}
-  .rain::before{
-    content:"";
-    position:absolute; inset:0;
-    background-image: linear-gradient(transparent 60%, rgba(255,255,255,0.02) 61%);
-    animation: rain-move 0.6s linear infinite;
-    opacity:0.6;
-    mix-blend-mode:overlay;
-  }
-  @keyframes rain-move{ 0%{transform:translateY(-10%)} 100%{transform:translateY(10%)} }
-
-  .snow {position:absolute; inset:0; pointer-events:none; overflow:hidden;}
-  .snow .flake {position:absolute; color:rgba(255,255,255,0.9); font-size:12px; animation: fall linear infinite;}
-  @keyframes fall { 0%{transform:translateY(-10vh)} 100%{transform:translateY(120vh)} }
-
-  .flash {position:absolute; inset:0; pointer-events:none; animation: flash 3s linear infinite;}
-  @keyframes flash {0%,92%{opacity:0} 95%{opacity:0.9} 97%{opacity:0} }
-
-  /* dynamic background container (gradient changes via JS) */
-  .bg {
-    position:fixed; inset:0; z-index:-1; transition:background 700ms ease;
-    background: linear-gradient(180deg,#74ebd5,#ACB6E5);
-  }
-
-  /* responsive */
-  @media (max-width:900px){
-    .app{grid-template-columns: 1fr; max-width:640px;}
-    .icon{width:90px;height:90px;font-size:36px}
-    .temp{font-size:44px}
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Finder — Modern UI</title>
+    
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- Dynamic gradient background and overlays -->
-<div class="bg" id="bg"></div>
-<div class="overlay" id="overlay"></div>
+    <div class="container">
 
-<div class="app" role="application" aria-label="Weather Finder App">
+        <h1 class="title">Weather Finder</h1>
 
-  <main class="main" aria-live="polite">
-    <div class="search-row" role="search">
-      <div class="search" aria-hidden="false">
-        <input id="searchInput" placeholder="Search city or allow location..." aria-label="Search city" />
-        <button id="detectBtn" class="btn" title="Detect my location">Detect</button>
-      </div>
-      <button id="searchBtn" class="btn" title="Search">Search</button>
-    </div>
-    <div class="small">Use the search or allow location detection. Data provided by Open-Meteo (no API key required).</div>
-
-    <!-- Current weather -->
-    <section class="current" aria-labelledby="current-heading">
-      <div class="left">
-        <div class="loc" id="loc">Detecting location…</div>
-        <div class="desc" id="desc">—</div>
-        <div class="temp-row">
-          <div class="temp" id="temp">--</div>
-          <div class="unit">°C</div>
+        <div class="search-bar">
+            <input type="text" id="city-input" placeholder="Search for a city…">
+            <button id="search-btn">Search</button>
+            <button id="detect-btn">Detect</button>
         </div>
-        <div class="meta">
-          <div><span id="wind">—</span><span class="label"> Wind (m/s)</span></div>
-          <div><span id="hum">—</span><span class="label"> Humidity</span></div>
-          <div><span id="pres">—</span><span class="label"> Pressure</span></div>
+
+        <p class="note">Use search or allow location detection. Data from Open-Meteo.</p>
+
+        <div class="weather-card">
+            <h2 id="location-name">—</h2>
+
+            <div class="weather-main">
+                <div class="left">
+                    <div class="temp">
+                        <span id="temp-value">—</span>°C
+                    </div>
+                    <div class="meta">
+                        <span id="wind">Wind: — m/s</span>
+                        <span id="humidity">Humidity: —%</span>
+                        <span id="pressure">Pressure: — hPa</span>
+                    </div>
+                </div>
+
+                <div class="right">
+                    <img id="weather-icon" src="icons/sun.png" class="icon">
+                </div>
+            </div>
+
+            <h3>7-Day Forecast</h3>
+            <div class="forecast" id="forecast"></div>
+
+            <h3>Hourly (next 24h)</h3>
+            <canvas id="hourlyChart"></canvas>
         </div>
-      </div>
-      <div class="icon" id="curIcon" aria-hidden="true">☀️</div>
-    </section>
 
-    <!-- Forecast -->
-    <section class="forecast" aria-labelledby="forecast-heading">
-      <h3 id="forecast-heading" style="margin:12px 0 8px 4px; color:var(--muted); font-size:13px;">7-Day Forecast</h3>
-      <div class="forecast-grid" id="forecastGrid" role="list"></div>
-    </section>
-  </main>
-
-  <!-- Right panel -->
-  <aside class="panel" aria-label="Hourly and details">
-    <div class="card">
-      <h3>Hourly (next 24h)</h3>
-      <canvas id="hourlyChart" aria-hidden="false"></canvas>
     </div>
-    <div class="card" id="detailsCard">
-      <h3>Details</h3>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; color:var(--muted);">
-        <div><strong>Sunrise</strong><div id="sunrise">—</div></div>
-        <div><strong>Sunset</strong><div id="sunset">—</div></div>
-        <div><strong>Pressure</strong><div id="pressureDetail">—</div></div>
-        <div><strong>Visibility</strong><div id="visibility">—</div></div>
-      </div>
-    </div>
-  </aside>
 
-</div>
-
-<script>
-/* -----------------------
-   Utilities & Mappings
-   ----------------------- */
-const weatherIcons = {
-  // map Open-Meteo weathercode to emoji/icons (can replace with SVG later)
-  0: "☀️", 1: "🌤", 2: "⛅", 3: "☁️",
-  45: "🌫", 48: "🌫",
-  51: "🌦", 53: "🌦", 55: "🌧",
-  56: "🌧", 57: "🌧",
-  61: "🌧", 63: "🌧", 65: "🌧",
-  66: "🌨", 67: "🌨",
-  71: "🌨", 73: "❄️", 75: "❄️",
-  77: "🌨",
-  80: "🌦", 81: "🌧", 82: "⛈",
-  85: "❄️", 86: "❄️",
-  95: "⛈", 96: "⛈", 99: "⛈"
-};
-
-function formatTimeISO(iso, tz) {
-  // Returns HH:MM in local timezone provided by API's timezone string
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
-}
-
-/* -----------------------
-   DOM references
-   ----------------------- */
-const bg = document.getElementById('bg');
-const overlay = document.getElementById('overlay');
-const searchInput = document.getElementById('searchInput');
-const searchBtn = document.getElementById('searchBtn');
-const detectBtn = document.getElementById('detectBtn');
-
-const locEl = document.getElementById('loc');
-const descEl = document.getElementById('desc');
-const tempEl = document.getElementById('temp');
-const curIcon = document.getElementById('curIcon');
-const windEl = document.getElementById('wind');
-const humEl = document.getElementById('hum');
-const presEl = document.getElementById('pres');
-const forecastGrid = document.getElementById('forecastGrid');
-
-const sunriseEl = document.getElementById('sunrise');
-const sunsetEl = document.getElementById('sunset');
-const pressureDetailEl = document.getElementById('pressureDetail');
-const visibilityEl = document.getElementById('visibility');
-
-/* -----------------------
-   Chart setup
-   ----------------------- */
-let hourlyChart;
-function createHourlyChart(labels, temps){
-  const ctx = document.getElementById('hourlyChart').getContext('2d');
-  if (hourlyChart) hourlyChart.destroy();
-  hourlyChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: '°C',
-        data: temps,
-        borderWidth: 2,
-        tension: 0.35,
-        pointRadius: 3,
-        fill: true,
-        backgroundColor: 'rgba(79,195,247,0.12)',
-        borderColor: 'rgba(79,195,247,0.95)'
-      }]
-    },
-    options: {
-      interaction: {mode: 'index', intersect: false},
-      scales: {
-        x: { grid: {display:false}, ticks: {maxRotation:0} },
-        y: { grid: { color: 'rgba(255,255,255,0.04)' } }
-      },
-      plugins: { legend: { display: false } },
-      responsive: true,
-      maintainAspectRatio: false
-    }
-  });
-}
-
-/* -----------------------
-   Dynamic background handlers
-   ----------------------- */
-function clearOverlay(){
-  overlay.innerHTML = '';
-  overlay.className = 'overlay';
-}
-function setSunny(){
-  clearOverlay();
-  bg.style.background = "linear-gradient(180deg,#86d9ff 0%,#2b6ef6 60%)";
-}
-function setClouds(){
-  clearOverlay();
-  bg.style.background = "linear-gradient(180deg,#9fb4d8 0%,#4e6b88 60%)";
-}
-function setRain(){
-  clearOverlay();
-  bg.style.background = "linear-gradient(180deg,#2b6ef6 0%,#0f2b45 70%)";
-  const r = document.createElement('div'); r.className='rain';
-  overlay.appendChild(r);
-}
-function setSnow(){
-  clearOverlay();
-  bg.style.background = "linear-gradient(180deg,#e6f0ff 0%,#9fb8d9 60%)";
-  // create small falling snow flakes
-  const s = document.createElement('div'); s.className='snow';
-  for(let i=0;i<30;i++){
-    const fl = document.createElement('div'); fl.className='flake';
-    fl.style.left = (Math.random()*100)+'%';
-    fl.style.top = (Math.random()*-50)+'%';
-    fl.style.fontSize = (8+Math.random()*12)+'px';
-    fl.style.animationDuration = (6+Math.random()*6)+'s';
-    fl.style.opacity = 0.8*Math.random()+0.2;
-    fl.textContent = '❄️';
-    s.appendChild(fl);
-  }
-  overlay.appendChild(s);
-}
-function setThunder(){
-  clearOverlay();
-  bg.style.background = "linear-gradient(180deg,#1a1a2b 0%,#4a1b6f 60%)";
-  const f = document.createElement('div'); f.className='flash'; f.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.12))';
-  overlay.appendChild(f);
-}
-function setDefault(){
-  clearOverlay();
-  bg.style.background = "linear-gradient(180deg,#74ebd5,#ACB6E5)";
-}
-
-/* map weather code groups to background */
-function applyBackgroundByCode(code){
-  // thunder codes
-  if ([95,96,99,82].includes(code)) { setThunder(); return; }
-  // snow codes
-  if ([71,73,75,77,85,86].includes(code)) { setSnow(); return; }
-  // rain codes
-  if ([51,53,55,56,57,61,63,65,66,67,80,81].includes(code)) { setRain(); return; }
-  // clouds
-  if ([1,2,3,45,48].includes(code)) { setClouds(); return; }
-  // clear
-  if (code === 0) { setSunny(); return; }
-  setDefault();
-}
-
-/* -----------------------
-   Core: fetch & render
-   ----------------------- */
-async function fetchWeatherByLatLon(lat, lon, labelForUI = null){
-  // Open-Meteo call: current, hourly, daily and timezone auto
-  const api = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-              `&hourly=temperature_2m,relativehumidity_2m,pressure_msl,visibility,weathercode&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset&current_weather=true&timezone=auto`;
-  const res = await fetch(api);
-  if (!res.ok) throw new Error('Weather API error');
-  const data = await res.json();
-  renderAll(data, labelForUI);
-  return data;
-}
-
-function renderAll(data, labelForUI){
-  // Current
-  const cw = data.current_weather;
-  const tz = data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-  locEl.textContent = labelForUI || (data?.timezone || 'Location');
-  descEl.textContent = getWeatherDescription(cw.weathercode);
-  tempEl.textContent = Math.round(cw.temperature);
-  curIcon.textContent = weatherIcons[cw.weathercode] || '🌤';
-  windEl.textContent = cw.windspeed || '—';
-  // pressure/humidity may come from hourly nearest time if available
-  const nowIdx = data.hourly?.time?.indexOf(cw.time);
-  const humidity = nowIdx !== -1 && data.hourly?.relativehumidity_2m ? data.hourly.relativehumidity_2m[nowIdx] : '—';
-  const pressure = nowIdx !== -1 && data.hourly?.pressure_msl ? Math.round(data.hourly.pressure_msl[nowIdx]) : '—';
-  const visibility = nowIdx !== -1 && data.hourly?.visibility ? Math.round(data.hourly.visibility[nowIdx]) : '—';
-  humEl.textContent = humidity === '—' ? '—' : humidity + '%';
-  presEl.textContent = pressure === '—' ? '—' : pressure + ' hPa';
-
-  // Details (daily sunrise/sunset)
-  sunriseEl.textContent = data.daily?.sunrise ? new Date(data.daily.sunrise[0]).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
-  sunsetEl.textContent = data.daily?.sunset ? new Date(data.daily.sunset[0]).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
-  pressureDetailEl.textContent = pressure === '—' ? '—' : pressure + ' hPa';
-  visibilityEl.textContent = visibility === '—' ? '—' : (visibility + ' m');
-
-  // 7-day forecast
-  forecastGrid.innerHTML = '';
-  if (data.daily && data.daily.time){
-    for (let i=0; i<Math.min(7, data.daily.time.length); i++){
-      const day = document.createElement('div'); day.className='day'; day.setAttribute('role','listitem');
-      const date = new Date(data.daily.time[i]);
-      const dayName = date.toLocaleDateString([], {weekday:'short'});
-      const icon = weatherIcons[data.daily.weathercode[i]] || '⛅';
-      day.innerHTML = `<div class="dayname">${dayName}</div>
-        <div class="r-icon">${icon}</div>
-        <div class="temps">${Math.round(data.daily.temperature_2m_max[i])}° / ${Math.round(data.daily.temperature_2m_min[i])}°</div>`;
-      forecastGrid.appendChild(day);
-    }
-  }
-
-  // hourly chart (take next 24 values)
-  if (data.hourly && data.hourly.time && data.hourly.temperature_2m){
-    const nowIndex = data.hourly.time.indexOf(cw.time);
-    const start = Math.max(0, nowIndex);
-    const labels = [];
-    const temps = [];
-    for (let i=start; i< Math.min(start+24, data.hourly.time.length); i++){
-      const d = new Date(data.hourly.time[i]);
-      labels.push(d.getHours()+':00');
-      temps.push(data.hourly.temperature_2m[i]);
-    }
-    createHourlyChart(labels, temps);
-  }
-
-  // dynamic background
-  applyBackgroundByCode(cw.weathercode);
-}
-
-/* -----------------------
-   Geocoding helpers
-   ----------------------- */
-async function geocodeCity(name){
-  // Use Open-Meteo geocoding API
-  const q = encodeURIComponent(name);
-  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${q}&count=8&language=en&format=json`;
-  const r = await fetch(url);
-  if (!r.ok) return [];
-  const j = await r.json();
-  return j?.results || [];
-}
-
-/* -----------------------
-   Interaction & init
-   ----------------------- */
-
-async function detectLocationAndLoad(){
-  if (!navigator.geolocation) {
-    locEl.textContent = 'Location not supported';
-    return;
-  }
-  locEl.textContent = 'Detecting location…';
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    const lat = pos.coords.latitude, lon = pos.coords.longitude;
-    try {
-      // reverse geocode to get a friendly label (approx)
-      const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=en`);
-      const gj = await geo.json();
-      const name = (gj.results && gj.results[0] && gj.results[0].name) ? gj.results[0].name : `${lat.toFixed(2)},${lon.toFixed(2)}`;
-      await fetchWeatherByLatLon(lat, lon, name);
-    } catch (e){
-      // fallback to just lat/lon weather
-      await fetchWeatherByLatLon(lat, lon, `${lat.toFixed(2)},${lon.toFixed(2)}`);
-    }
-  }, (err) => { locEl.textContent = 'Location denied'; setDefault(); });
-}
-
-/* wire up search */
-let searchTimeout;
-searchBtn.addEventListener('click', async () => {
-  const q = searchInput.value.trim();
-  if (!q) { alert('Enter city or allow detection'); return; }
-  searchBtn.disabled = true;
-  try {
-    const results = await geocodeCity(q);
-    if (!results.length) { alert('Location not found'); searchBtn.disabled = false; return; }
-    const place = results[0];
-    searchInput.value = `${place.name}, ${place.country}`;
-    await fetchWeatherByLatLon(place.latitude, place.longitude, `${place.name}, ${place.country}`);
-  } catch (e){
-    alert('Search failed');
-    console.error(e);
-  } finally { searchBtn.disabled = false; }
-});
-
-/* detect button */
-detectBtn.addEventListener('click', detectLocationAndLoad);
-
-/* allow Enter key on input */
-searchInput.addEventListener('keyup', (e)=>{
-  if (e.key === 'Enter') searchBtn.click();
-});
-
-/* On load: try to detect location */
-window.addEventListener('load', () => {
-  detectLocationAndLoad();
-});
-</script>
-
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
