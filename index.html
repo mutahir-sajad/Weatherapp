@@ -1,56 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather Finder — Modern UI</title>
-    
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Weather App</title>
+
+    <!-- External CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+    <div class="app-container">
 
-    <div class="container">
-
-        <h1 class="title">Weather Finder</h1>
-
-        <div class="search-bar">
-            <input type="text" id="city-input" placeholder="Search for a city…">
-            <button id="search-btn">Search</button>
-            <button id="detect-btn">Detect</button>
+        <div class="top-bar">
+            <input type="text" id="searchInput" placeholder="Search city..." autocomplete="off" />
+            <button id="searchBtn">Search</button>
+            <button id="detectBtn">Detect</button>
         </div>
 
-        <p class="note">Use search or allow location detection. Data from Open-Meteo.</p>
-
-        <div class="weather-card">
-            <h2 id="location-name">—</h2>
-
-            <div class="weather-main">
-                <div class="left">
-                    <div class="temp">
-                        <span id="temp-value">—</span>°C
-                    </div>
-                    <div class="meta">
-                        <span id="wind">Wind: — m/s</span>
-                        <span id="humidity">Humidity: —%</span>
-                        <span id="pressure">Pressure: — hPa</span>
-                    </div>
-                </div>
-
-                <div class="right">
-                    <img id="weather-icon" src="icons/sun.png" class="icon">
-                </div>
+        <div id="weatherCard" class="weather-card">
+            <div id="location" class="location">Detecting...</div>
+            <div id="description" class="description"></div>
+            <div class="temp-row">
+                <div id="temp" class="temp"></div>
+                <img id="weatherIcon" class="weather-icon" alt="">
             </div>
 
-            <h3>7-Day Forecast</h3>
-            <div class="forecast" id="forecast"></div>
-
-            <h3>Hourly (next 24h)</h3>
-            <canvas id="hourlyChart"></canvas>
+            <div class="details">
+                <div>Humidity: <span id="humidity"></span></div>
+                <div>Wind: <span id="wind"></span></div>
+                <div>Pressure: <span id="pressure"></span></div>
+            </div>
         </div>
+
+        <h2 class="sec-title">7-Day Forecast</h2>
+        <div id="dailyForecast" class="forecast-grid"></div>
+
+        <h2 class="sec-title">Hourly Forecast</h2>
+        <canvas id="hourlyChart"></canvas>
 
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- External JS -->
     <script src="app.js"></script>
 </body>
 </html>
